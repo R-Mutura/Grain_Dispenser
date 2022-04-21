@@ -1,7 +1,18 @@
 #include <Arduino.h>
 #include <MFRC522.h>
+#include <Adafruit_BusIO_Register.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+#include <SPI.h>
+
 
 #include "weight.h"
+
+#define TFT_CS        2
+#define TFT_RST       -1 // Or set to -1 and connect to Arduino RESET pin
+#define TFT_DC        15
+#define TFT_BACKLIGHT -1 // Display backlight pin
 
 #define ECHO 16
 #define TRIG 17
@@ -19,6 +30,8 @@
 #define sclk 14
 #define miso 13
  
+ //inititialize display with software spi
+ Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, mosi, sclk, TFT_RST);
  //uid storage variable
   byte tagdata[5] = {0};
 MFRC522 rfid(SS_PIN);
@@ -31,13 +44,26 @@ float getweight   ();
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
+
   SPI.begin(sclk , miso, mosi); // init SPI bus
+  
   rfid.PCD_Init(); // init MFRC522
+
+  tft.init(240, 240);                // Init ST7789 240x240
+  tft.setRotation(2);
+
   pinMode(ECHO, INPUT);
   pinMode(TRIG, OUTPUT);
+  
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setCursor(0, 0);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setTextWrap(true);
+  tft.print("WELCOME!");
 }
 
 void loop() {
+  tft.fillScreen(ST77XX_BLACK);
   // put your main code here, to run repeatedly:
    readrfid(); //must be called before checking tag data
    Serial.print(tagdata[0]);
@@ -45,9 +71,29 @@ void loop() {
    Serial.print(tagdata[2]);
    Serial.print(tagdata[3]);
    Serial.print(tagdata[4]);
+
+  
+  tft.setCursor(6, 6);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setTextWrap(true);
+    tft.print("Tag UID: ");
+    tft.print(tagdata[0] + " ");
+    tft.print(tagdata[1] + " ");
+    tft.print(tagdata[2] + " ");
+    tft.print(tagdata[3] + " ");
+    tft.println(tagdata[4]);
   
   //total weight is equal to weight loadcell 1 +loadcell 2...this should be calibrated separately before rollout
   float weight = getweight();
+    tft.print("Weight ");
+    tft.print(weight);
+    tft.println("g");
+    
+    tft.print("Level ");
+    tft.print(getlevel());
+    tft.println("cm");
+
+
 }
 
 void readrfid(){
@@ -101,6 +147,7 @@ int getlevel(){
   }
 
 }
+
  float getweight(){
      float weight1 = getweightdata(DT1,SCK1);
     float weight2 = getweightdata(DT2,SCK2);
