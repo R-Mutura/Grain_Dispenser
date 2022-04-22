@@ -13,6 +13,9 @@
 #include <Arduino.h>
 #include <MFRC522.h>
 
+
+
+
 #include "basic.h"
 #include "weight.h"
 
@@ -45,7 +48,8 @@ float getweight   ();
 //#define SS   5
 
 char server[] = "arduino.cc";
-char pathdata[] = "weight";
+char pathdata[] = "weight/";
+char pathlevel[] = "level/";
 
 // Initialize the Ethernet client object 
   // EthernetClient client;
@@ -58,7 +62,7 @@ void setup()
 
   Serial.begin(115200);
   while (!Serial);
-
+  btn.attachClick(handleClick);
   delay(500);
 
   Serial.print("\nStarting WebClient on "); Serial.print(BOARD_NAME);
@@ -296,13 +300,24 @@ void printoutData()
 
 void loop()
 {
-  
-
+    btn.tick();
+   int x = getlevel();
+   if(x==0){
+          Serial.println("Silo level: EMPTY");
+          tft.setTextSize(5);
+          tft.setCursor(6, 6);
+          tft.setTextColor(ST77XX_RED);
+          tft.setTextWrap(true);
+          tft.println("Silo level: EMPTY");
+          delay(50);
+     return;
+    }
   tft.fillScreen(ST77XX_BLACK);
   // put your main code here, to run repeatedly:
    int updatestatus = readrfid(); //must be called before checking tag data
    float weightmeasured = 0;
-   if(updatestatus) {//if there is an rfid update then
+ if(updatestatus && measurement_done_flag == 0) {//if there is an rfid update then
+    
    Serial.print(tagdata[0]);
    Serial.print(tagdata[1]);
    Serial.print(tagdata[2]);
@@ -322,24 +337,25 @@ void loop()
         return;
         
         }
-       else if(card_status==2){
+       else if(card_status == 3){
           updatestatus=0;
-          Serial.println("Server ERROR!!");
+          Serial.println("Server or system ERROR!!");
           tft.setTextSize(5);
           tft.setCursor(6, 6);
           tft.setTextColor(ST77XX_RED);
           tft.setTextWrap(true);
-          tft.println("Server ERROR!!");
+          tft.println("System ERROR!!");
           delay(1000); //wait for 1 second then proceed to do something else
         }
        else{
           updatestatus = 0;
-          Serial.println("Invalid Card. Register Please!");
+          Serial.println("RFID TAG ID NOT VALID!");
           tft.setTextSize(5);
           tft.setCursor(6, 6);
           tft.setTextColor(ST77XX_BLUE);
           tft.setTextWrap(true);
-          tft.println("Invalid Card. Register Please!");
+          tft.println("RFID TAG ID NOT VALID!!");
+          tft.println("Register Please!");
           delay(1000); //wait for 1 second then proceed to do something else
         }
    
@@ -361,11 +377,13 @@ void loop()
           tft.setTextColor(ST77XX_BLUE);
           tft.setTextWrap(true);
           tft.print(weightmeasured); 
-//////////CALL DONE FUNCTION
-        done();
-/////////SEND DATA TO SERVER VIA THE API/////////
+          pound ? tft.print("lb"): tft.print("g");
+   //////////CALL DONE FUNCTION
+          done();
+   /////////SEND DATA TO SERVER VIA THE API/////////
            String packet =String(pathdata) + String(tagdata) +":"+ String(weightmeasured);
            apicall(String(tagdata));
+           measurement_done_flag=0;
            delay(17000);//delay for 20seconds while displaying the most recent value
       }
   
@@ -412,15 +430,25 @@ int getlevel(){
   delayMicroseconds(20);
   duration = pulseIn(ECHO, HIGH); //To receive the reflected signal.
   distance= duration*0.034/2; //IN CENTIMETERS
-  if (distance>80)
-  {
+   if (distance>90)
+  { 
+    //send to allert api the storage is very low
+    String datalevel = String(pathlevel) + "EMPTY";
+    apicall(datalevel);
+    return 0; //storage level is very low and refil is needed
+  }
+  else if (distance>70)
+  { 
+    //send to allert api the storage is empty
+    String datalevel = String(pathlevel) + "LOW";
+    apicall(datalevel);
     return 1; //storage level is very low and refil is needed
   }
-  if (distance>30 && distance <=80)
+  else if (distance>30 && distance <=70)
   {
     return 5; //storage level is okay
   }
-    if (distance<=30)
+   else(distance<=30);
   {
     return 10; //storage level is full
   }
@@ -434,3 +462,7 @@ int getlevel(){
 //   return (weight); //the actual weight of the object
 //
 // }
+
+void handleClick(){
+  pound = !pound;
+  }

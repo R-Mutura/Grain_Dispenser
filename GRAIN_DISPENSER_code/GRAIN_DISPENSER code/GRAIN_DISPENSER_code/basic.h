@@ -1,4 +1,4 @@
-int measurement_done_flag = 0;
+
 
 #include <Arduino.h>
 #include "weight.h"
@@ -8,6 +8,10 @@ int measurement_done_flag = 0;
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 #include <SPI.h>
+#include <OneButton.h>
+
+int measurement_done_flag = 0;
+int pound = 0;
 
 #define mosi 12
 #define sclk 14
@@ -42,9 +46,16 @@ PCF8574 pcf(pcf_addr);
 #define rfid_rst   5
 //on esp32s
 #define buzzer     27
+#define change_btn 35
+
+OneButton btn = OneButton(
+  change_btn,  // Input pin for the button
+  true,        // Button is active LOW
+  true         // Enable internal pull-up resistor
+);
 
 float getweight();
-
+float units(float values, int pounds);
 
 float basic()
 {
@@ -67,12 +78,15 @@ float basic()
      //get weight reading and update screen here
         total= getweight();
         load = total - container;
+        load = units(load , pound);
         
         tft.fillScreen(ST77XX_BLACK);
         tft.setTextSize(10);
         tft.setCursor(0, 0);
         tft.setTextColor(ST77XX_BLUE);
         tft.setTextWrap(true);
+        tft.print(load);
+        pound ? tft.print("lb"): tft.print("g");
         tft.print(load);
         measurement_done_flag =1;
     }
@@ -100,3 +114,15 @@ float basic()
    //write solenoid high to open it
     pcf.write(solenoid, LOW);
   }
+
+  float units(float values, int pounds){
+    if(pounds){
+    values = values * 0.00220462;
+    }
+    else
+    {
+      //do nothing and just return the value
+      }
+    return values;
+    }
+  
