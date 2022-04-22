@@ -8,6 +8,7 @@
 
 
 #include "weight.h"
+#include "etherwebclient.h"
 
 #define TFT_CS        2
 #define TFT_RST       -1 // Or set to -1 and connect to Arduino RESET pin
@@ -76,6 +77,7 @@ void loop() {
   tft.setCursor(6, 6);
   tft.setTextColor(ST77XX_WHITE);
   tft.setTextWrap(true);
+  tft.setTextSize(5);
     tft.print("Tag UID: ");
     tft.print(tagdata[0] + " ");
     tft.print(tagdata[1] + " ");
@@ -93,7 +95,7 @@ void loop() {
     tft.print(getlevel());
     tft.println("cm");
 
-
+ 
 }
 
 void readrfid(){
